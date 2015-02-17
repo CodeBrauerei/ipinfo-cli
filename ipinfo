@@ -1,0 +1,51 @@
+#!/usr/bin/env php
+<?php
+function curl_get_contents($url, $json = false, $show_error = false) {
+    if (!function_exists('curl_init')) { return file_get_contents($url); } // fallback
+    $ch = curl_init();
+    $options = array(
+        CURLOPT_SSL_VERIFYPEER => false,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_URL            => $url,
+        CURLOPT_HEADER         => false,
+    );
+    curl_setopt_array($ch, $options);
+    $response = curl_exec($ch);
+    if ($response === false && $show_error) {
+        echo 'ERROR: ' . curl_error($ch)."\n";
+    }
+    curl_close($ch);
+    if ($json) {
+        return json_decode($response, true);
+    }
+    return $response;
+}
+
+// conf
+define('API_URL', 'https://ipinfo.io/');
+define('DEBUG', false);
+
+if (!DEBUG) { error_reporting(0); }
+
+// throw errors on wrong usage..
+if (php_sapi_name() !== 'cli')
+    exit('ERROR: This script must be executed in cli');
+if (!empty($argv[1]) && !filter_var(trim($argv[1]), FILTER_VALIDATE_IP))
+    exit("ERROR: The given argument is not a valid IPv4/IPv6 address.".PHP_EOL);
+
+// build callable url
+$url = (empty($argv[1])) ? API_URL.'/json' : API_URL.$argv[1].'/json';
+
+// get the data
+$ip_data = curl_get_contents($url, true, DEBUG);
+
+if ($ip_data === false) {
+    exit("ERROR: The API is not available".PHP_EOL);    
+}
+
+echo PHP_EOL;
+foreach ($ip_data as $key => $value) {
+    echo str_pad(strtoupper($key), 10) . ': ' . $value . PHP_EOL;
+}
+echo PHP_EOL;
+?>
