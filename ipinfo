@@ -22,30 +22,41 @@ function curl_get_contents($url, $json = false, $show_error = false) {
 }
 
 // conf
-define('API_URL', 'https://ipinfo.io/');
+define('API_URL', 'http://ipinfo.io/');
 define('DEBUG', false);
 
 if (!DEBUG) { error_reporting(0); }
 
 // throw errors on wrong usage..
-if (php_sapi_name() !== 'cli')
-    exit('ERROR: This script must be executed in cli');
-if (!empty($argv[1]) && !filter_var(trim($argv[1]), FILTER_VALIDATE_IP))
-    exit("ERROR: The given argument is not a valid IPv4/IPv6 address.".PHP_EOL);
+if (php_sapi_name() !== 'cli') exit('ERROR: This script must be executed in cli.');
 
-// build callable url
-$url = (empty($argv[1])) ? API_URL.'/json' : API_URL.$argv[1].'/json';
+$addr = trim($argv[1]);
+
+if (!empty($addr)) {
+    if (preg_match('/[A-z0-9\.]+\.[A-z]+/', $addr)) { // is a domain?
+        $addr = gethostbyname($addr);
+        if ($addr === trim($argv[1])) {
+            exit("ERROR: Domain not resolved.".PHP_EOL);    
+        }
+    } else if (!filter_var($addr, FILTER_VALIDATE_IP)) {
+        exit("ERROR: Argument was not a valid IP or domain.".PHP_EOL);
+    }
+    $url = API_URL.$addr.'/json';
+} else {
+    $url = API_URL.'/json';
+}
 
 // get the data
 $ip_data = curl_get_contents($url, true, DEBUG);
 
-if ($ip_data === false) {
-    exit("ERROR: The API is not available".PHP_EOL);    
-}
+if ($ip_data === false) exit("ERROR: The API is not available.".PHP_EOL);
 
-echo PHP_EOL;
-foreach ($ip_data as $key => $value) {
-    echo str_pad(strtoupper($key), 10) . ': ' . $value . PHP_EOL;
+if (!empty($ip_data)) {
+    $maxKeyLength = max(array_map('strlen', array_keys($ip_data))) + 1;
+    foreach ($ip_data as $key => $value) {
+        if (empty($value)) continue;
+        echo str_pad(strtoupper($key), $maxKeyLength) . '= ' . $value . PHP_EOL;
+    }
+} else {
+    exit("ERROR: API result is empty.".PHP_EOL);
 }
-echo PHP_EOL;
-?>
